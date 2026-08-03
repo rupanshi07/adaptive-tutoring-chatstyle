@@ -1,0 +1,56 @@
+{
+  "('Low', 'Over-confident')": [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+  ],
+  "('Low', 'Well-calibrated')": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "('Low', 'Under-confident')": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "('Medium', 'Over-confident')": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "('Medium', 'Well-calibrated')": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "('Medium', 'Under-confident')": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "('High', 'Over-confident')": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "('High', 'Well-calibrated')": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "('High', 'Under-confident')": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ]
+}
