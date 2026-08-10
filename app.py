@@ -102,17 +102,19 @@ def start_new_question():
 def process_answer(bn_model, hmm_model, agent, student_answer, confidence_level):
     q = st.session_state.current_question
 
-    with st.spinner("Grading..."):
-        is_correct = grade_answer(q, student_answer)
-
     elapsed = time.time() - st.session_state.question_start_time
     time_taken = "Fast" if elapsed < 15 else "Slow"
     hints_flag = "Yes" if st.session_state.hint_used_this_round else "No"
 
+    # Bayesian Network predicts BEFORE grading -- genuine prediction,
+    # not a redundant re-derivation of an already-known outcome.
     p_correct = estimate_probability_correct(
         bn_model, confidence=confidence_level, difficulty=q["difficulty"],
         time_=time_taken, hints=hints_flag, previous_accuracy=st.session_state.previous_accuracy,
     )
+
+    with st.spinner("Grading..."):
+        is_correct = grade_answer(q, student_answer)
 
     observation = encode_observation(confidence_level, is_correct)
     updated_history = st.session_state.history + [observation]
@@ -307,3 +309,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
