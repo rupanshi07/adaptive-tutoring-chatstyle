@@ -2,7 +2,7 @@
 
 
 
-A conversational adaptive tutoring system that dynamically generates questions based on Subject, Topic, and Question Type, then personalizes feedback using Bayesian Networks, Hidden Markov Models, and Reinforcement Learning.
+A conversational adaptive tutoring system that dynamically generates questions based on Subject, Topic, and Question Type, then personalizes feedback using Bayesian Networks, Hidden Markov Models, and learner-feedback-driven Reinforcement Learning (RLHF-inspired, but not conventional LLM RLHF -- see Terminology Note below).
 
 
 
@@ -173,3 +173,10 @@ Cortez, P. (2008). Student Performance \[Dataset]. UCI Machine Learning Reposito
 
 
 
+
+
+## Terminology Note: "RLHF"
+
+This project uses learner feedback (Helpful / Not Helpful ratings) as part of the reward signal for a tabular Q-learning tutoring policy. This is reinforcement learning that uses human/learner feedback -- but it is NOT the same as conventional NLP RLHF (the technique used to align large language models), which involves training a separate reward model on human preference data and using it to fine-tune the LLM'"'"'s own weights via policy-gradient methods.
+
+In this project, Gemini is never fine-tuned; its weights are never modified. Only the separate, from-scratch Q-learning agent'"'"'s policy is updated using learner feedback. The more precise term for this is "learner-feedback-driven reinforcement learning" or "RLHF-inspired reinforcement learning." The term RLHF in the project title should be understood in this narrower sense.

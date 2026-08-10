@@ -205,7 +205,7 @@ def finalize_with_satisfaction(agent, satisfied):
 def main():
     st.set_page_config(page_title="Adaptive Tutor Chat", page_icon=":books:")
     st.title("Adaptive Tutoring Chat")
-    st.caption("Bayesian Networks + Hidden Markov Models + Reinforcement Learning from Human Feedback")
+    st.caption("Bayesian Networks + Hidden Markov Models + Learner-Feedback-Driven Reinforcement Learning")
 
     bn_model, hmm_model, agent = load_models()
     init_session_state()
@@ -309,4 +309,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
