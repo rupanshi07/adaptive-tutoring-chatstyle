@@ -21,7 +21,7 @@ def get_client():
     return _client
 
 
-def generate_question(subject, topic, question_type, difficulty="Medium"):
+def generate_question(subject, topic, question_type, difficulty="Medium", max_retries=3):
     """
     question_type: 'MCQ', 'Descriptive', or 'Coding'
     Returns a dict with: question, question_type, difficulty,
@@ -59,15 +59,12 @@ def generate_question(subject, topic, question_type, difficulty="Medium"):
         "studying this subject and topic. " + format_instruction
     )
 
-    client = get_client()
-    response = client.models.generate_content(
-        model="gemini-flash-latest",
-        contents=prompt,
-    )
-    raw = response.text.strip().replace("```json", "").replace("```", "").strip()
+    text, provider = call_llm_with_fallback(prompt)
+    raw = text.replace("```json", "").replace("```", "").strip()
     parsed = json.loads(raw)
     parsed["question_type"] = question_type
     parsed["difficulty"] = difficulty
+    parsed["_llm_provider"] = provider
     return parsed
 
 
@@ -91,12 +88,8 @@ def grade_answer(question, student_answer):
     )
 
     try:
-        client = get_client()
-        response = client.models.generate_content(
-            model="gemini-flash-latest",
-            contents=prompt,
-        )
-        raw = response.text.strip().replace("```json", "").replace("```", "").strip()
+        text, provider = call_llm_with_fallback(prompt)
+        raw = text.replace("```json", "").replace("```", "").strip()
         parsed = json.loads(raw)
         return bool(parsed.get("correct", False))
     except Exception:
@@ -138,13 +131,9 @@ def generate_feedback(question, action, use_llm=True):
     if not use_llm:
         return "[static] Action=" + action
     try:
-        client = get_client()
         prompt = _build_feedback_prompt(question, action)
-        response = client.models.generate_content(
-            model="gemini-flash-latest",
-            contents=prompt,
-        )
-        return response.text.strip()
+        text, provider = call_llm_with_fallback(prompt)
+        return text
     except Exception as e:
         return "[Tutor unavailable, fallback message] Action was: " + action + ". Error: " + str(e)
 
@@ -158,3 +147,63 @@ if __name__ == "__main__":
 
     print("\nHint feedback:")
     print(generate_feedback(q, "Hint"))
+
+
+
+
+_groq_client = None
+
+
+def get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        from groq import Groq
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY environment variable not set.")
+        _groq_client = Groq(api_key=api_key)
+    return _groq_client
+
+
+def call_llm_with_fallback(prompt, max_gemini_retries=2):
+    """
+    Tries Gemini first (with its own short retry loop for transient errors).
+    If Gemini fails entirely, falls back to Groq (Llama 3.3 70B), a
+    completely separate provider/infrastructure, so a Gemini outage does
+    not take down question generation, grading, or feedback.
+    Returns (response_text, provider_used) so callers can log which
+    provider actually served the request.
+    """
+    import time as _time
+
+    gemini_error = None
+    try:
+        client = get_client()
+        for attempt in range(max_gemini_retries):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-flash-latest",
+                    contents=prompt,
+                )
+                return response.text.strip(), "gemini"
+            except Exception as e:
+                gemini_error = e
+                _time.sleep(2 * (attempt + 1))
+    except Exception as e:
+        gemini_error = e
+
+    try:
+        groq_client = get_groq_client()
+        completion = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return completion.choices[0].message.content.strip(), "groq"
+    except Exception as groq_error:
+        raise RuntimeError(
+            f"Both Gemini and Groq failed. Gemini error: {gemini_error}. "
+            f"Groq error: {groq_error}"
+        )
+
+
+
