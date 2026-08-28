@@ -14,6 +14,8 @@ from modules.hmm_calibration import build_hmm, encode_observation, infer_calibra
 from modules.rl_agent import TutorRLAgent, bucket_probability, compute_reward
 from modules.tutor import generate_question, grade_answer, generate_feedback
 
+TIME_THRESHOLDS = {"MCQ": 10, "Descriptive": 25, "Coding": 45}
+
 LOG_PATH = "data/interaction_log.csv"
 LOG_FIELDS = [
     "timestamp", "subject", "topic", "question_type", "difficulty",
@@ -103,7 +105,8 @@ def process_answer(bn_model, hmm_model, agent, student_answer, confidence_level)
     q = st.session_state.current_question
 
     elapsed = time.time() - st.session_state.question_start_time
-    time_taken = "Fast" if elapsed < 15 else "Slow"
+    threshold = TIME_THRESHOLDS.get(q["question_type"], 15)
+    time_taken = "Fast" if elapsed < threshold else "Slow"
     hints_flag = "Yes" if st.session_state.hint_used_this_round else "No"
 
     # Bayesian Network predicts BEFORE grading -- genuine prediction,
@@ -309,5 +312,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
