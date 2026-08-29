@@ -207,3 +207,52 @@ def call_llm_with_fallback(prompt, max_gemini_retries=2):
 
 
 
+
+
+CONF_TO_NUM = {"Low": 0, "Medium": 1, "High": 2}
+NUM_TO_CONF = {0: "Low", 1: "Medium", 2: "High"}
+
+
+def analyze_justification_confidence(question, justification):
+    """
+    Analyzes optional free-text justification for hedging vs assertive
+    language, returning Low/Medium/High linguistic confidence, or None
+    if no justification was given or analysis fails.
+    """
+    if not justification or not justification.strip():
+        return None
+
+    prompt = (
+        "Question: " + question["question"] + "\n"
+        "Student justification for their answer: " + justification + "\n\n"
+        "Judge the STUDENT'S LINGUISTIC CONFIDENCE based only on their wording, "
+        "not whether their reasoning is correct. Hedging language (maybe, "
+        "I think, not sure, probably) suggests lower confidence. Assertive "
+        "language (definitely, clearly, because, therefore) suggests higher "
+        "confidence. "
+        "Respond with ONLY valid JSON, no other text, in this exact format: "
+        "{\"linguistic_confidence\": \"Low\"} or {\"linguistic_confidence\": \"Medium\"} or {\"linguistic_confidence\": \"High\"}"
+    )
+
+    try:
+        text, provider = call_llm_with_fallback(prompt)
+        raw = text.replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(raw)
+        value = parsed.get("linguistic_confidence")
+        if value in ("Low", "Medium", "High"):
+            return value
+        return None
+    except Exception:
+        return None
+
+
+def blend_confidence(self_reported, linguistic):
+    """
+    Blends self-reported confidence with linguistic confidence derived
+    from justification text. If no justification was given, returns the
+    self-reported value unchanged.
+    """
+    if linguistic is None:
+        return self_reported
+    avg = (CONF_TO_NUM[self_reported] + CONF_TO_NUM[linguistic]) / 2
+    return NUM_TO_CONF[round(avg)]
