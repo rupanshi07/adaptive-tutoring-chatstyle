@@ -17,7 +17,7 @@ def get_client():
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY environment variable not set.")
-        _client = genai.Client(api_key=api_key)
+        _client = genai.Client(api_key=api_key, http_options={"timeout": 30000})
     return _client
 
 
@@ -161,11 +161,11 @@ def get_groq_client():
         api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
             raise RuntimeError("GROQ_API_KEY environment variable not set.")
-        _groq_client = Groq(api_key=api_key)
+        _groq_client = Groq(api_key=api_key, timeout=20.0)
     return _groq_client
 
 
-def call_llm_with_fallback(prompt, max_gemini_retries=2):
+def call_llm_with_fallback(prompt, max_gemini_retries=1):
     """
     Tries Gemini first (with its own short retry loop for transient errors).
     If Gemini fails entirely, falls back to Groq (Llama 3.3 70B), a
@@ -195,7 +195,7 @@ def call_llm_with_fallback(prompt, max_gemini_retries=2):
     try:
         groq_client = get_groq_client()
         completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}],
         )
         return completion.choices[0].message.content.strip(), "groq"
@@ -256,3 +256,8 @@ def blend_confidence(self_reported, linguistic):
         return self_reported
     avg = (CONF_TO_NUM[self_reported] + CONF_TO_NUM[linguistic]) / 2
     return NUM_TO_CONF[round(avg)]
+
+
+
+
+
