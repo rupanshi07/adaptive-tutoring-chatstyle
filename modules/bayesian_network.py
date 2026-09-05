@@ -132,6 +132,23 @@ def estimate_probability_correct(model, confidence, difficulty, time_, hints, pr
     return result.get_value(Correct="Yes")
 
 
+def estimate_preliminary_probability_correct(model, difficulty, previous_accuracy):
+    """
+    Queries P(Correct) using ONLY Difficulty and PreviousAccuracy as evidence
+    -- before the student has answered, so Confidence, Time, and Hints are
+    still unknown. This genuinely exercises the network's dependency
+    structure: Confidence is marginalized via its link to PreviousAccuracy,
+    Hints via its link to Difficulty, and Time via its links to both --
+    rather than being given directly, as happens once the student submits.
+    """
+    infer = VariableElimination(model)
+    result = infer.query(
+        variables=["Correct"],
+        evidence={"Difficulty": difficulty, "PreviousAccuracy": previous_accuracy},
+    )
+    return result.get_value(Correct="Yes")
+
+
 if __name__ == "__main__":
     model = build_bayesian_network()
     print("Model structure (edges):")
@@ -145,3 +162,4 @@ if __name__ == "__main__":
     partial = infer.query(variables=["Time"], evidence={"Difficulty": "Hard", "Hints": "Yes"})
     print(f"\nNEW capability -- inferring Time from partial evidence (Difficulty=Hard, Hints=Yes):")
     print(partial)
+
