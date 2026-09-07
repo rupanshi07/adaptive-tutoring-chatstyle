@@ -17,7 +17,7 @@ def get_client():
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY environment variable not set.")
-        _client = genai.Client(api_key=api_key)
+        _client = genai.Client(api_key=api_key, http_options={"timeout": 30000})
     return _client
 
 
@@ -161,11 +161,11 @@ def get_groq_client():
         api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
             raise RuntimeError("GROQ_API_KEY environment variable not set.")
-        _groq_client = Groq(api_key=api_key)
+        _groq_client = Groq(api_key=api_key, timeout=20.0)
     return _groq_client
 
 
-def call_llm_with_fallback(prompt, max_gemini_retries=2):
+def call_llm_with_fallback(prompt, max_gemini_retries=1):
     """
     Tries Gemini first (with its own short retry loop for transient errors).
     If Gemini fails entirely, falls back to Groq (Llama 3.3 70B), a
@@ -195,7 +195,7 @@ def call_llm_with_fallback(prompt, max_gemini_retries=2):
     try:
         groq_client = get_groq_client()
         completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}],
         )
         return completion.choices[0].message.content.strip(), "groq"
@@ -204,6 +204,61 @@ def call_llm_with_fallback(prompt, max_gemini_retries=2):
             f"Both Gemini and Groq failed. Gemini error: {gemini_error}. "
             f"Groq error: {groq_error}"
         )
+
+
+
+
+
+CONF_TO_NUM = {"Low": 0, "Medium": 1, "High": 2}
+NUM_TO_CONF = {0: "Low", 1: "Medium", 2: "High"}
+
+
+def analyze_justification_confidence(question, justification):
+    """
+    Analyzes optional free-text justification for hedging vs assertive
+    language, returning Low/Medium/High linguistic confidence, or None
+    if no justification was given or analysis fails.
+    """
+    if not justification or not justification.strip():
+        return None
+
+    prompt = (
+        "Question: " + question["question"] + "\n"
+        "Student justification for their answer: " + justification + "\n\n"
+        "Judge the STUDENT'S LINGUISTIC CONFIDENCE based only on their wording, "
+        "not whether their reasoning is correct. Hedging language (maybe, "
+        "I think, not sure, probably) suggests lower confidence. Assertive "
+        "language (definitely, clearly, because, therefore) suggests higher "
+        "confidence. "
+        "Respond with ONLY valid JSON, no other text, in this exact format: "
+        "{\"linguistic_confidence\": \"Low\"} or {\"linguistic_confidence\": \"Medium\"} or {\"linguistic_confidence\": \"High\"}"
+    )
+
+    try:
+        text, provider = call_llm_with_fallback(prompt)
+        raw = text.replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(raw)
+        value = parsed.get("linguistic_confidence")
+        if value in ("Low", "Medium", "High"):
+            return value
+        return None
+    except Exception:
+        return None
+
+
+def blend_confidence(self_reported, linguistic):
+    """
+    Blends self-reported confidence with linguistic confidence derived
+    from justification text. If no justification was given, returns the
+    self-reported value unchanged.
+    """
+    if linguistic is None:
+        return self_reported
+    avg = (CONF_TO_NUM[self_reported] + CONF_TO_NUM[linguistic]) / 2
+    return NUM_TO_CONF[round(avg)]
+
+
+
 
 
 
