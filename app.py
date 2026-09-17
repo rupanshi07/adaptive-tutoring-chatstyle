@@ -112,7 +112,11 @@ def process_answer(bn_model, hmm_model, agent, student_answer, confidence_level,
         justification_future = executor.submit(analyze_justification_confidence, q, justification)
         grading_future = executor.submit(grade_answer, q, student_answer)
         linguistic_confidence = justification_future.result()
-        is_correct = grading_future.result()
+        is_correct, grading_failed = grading_future.result()
+
+    if grading_failed:
+        add_message("assistant", "Sorry, we could not reach the grading service just now -- this attempt will not count against you. Please try submitting again.")
+        return
     effective_confidence = blend_confidence(confidence_level, linguistic_confidence)
 
     elapsed = time.time() - st.session_state.question_start_time
@@ -331,6 +335,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 

@@ -72,10 +72,14 @@ def grade_answer(question, student_answer):
     """
     For MCQ: compares selected option letter directly (no LLM call needed).
     For Descriptive/Coding: uses Gemini to judge correctness.
-    Returns True/False.
+    Returns (is_correct: bool, grading_failed: bool). grading_failed=True
+    means the LLM call itself failed -- the student should NOT be silently
+    marked wrong due to a network/API error; the caller should show this
+    to the student and skip penalizing them for it.
     """
     if question["question_type"] == "MCQ":
-        return student_answer.strip().upper() == question["correct_option"].strip().upper()
+        is_correct = student_answer.strip().upper() == question["correct_option"].strip().upper()
+        return is_correct, False
 
     prompt = (
         "Question: " + question["question"] + "\n"
@@ -91,9 +95,9 @@ def grade_answer(question, student_answer):
         text, provider = call_llm_with_fallback(prompt)
         raw = text.replace("```json", "").replace("```", "").strip()
         parsed = json.loads(raw)
-        return bool(parsed.get("correct", False))
+        return bool(parsed.get("correct", False)), False
     except Exception:
-        return False
+        return False, True
 
 
 def _build_feedback_prompt(question, action):
@@ -256,6 +260,8 @@ def blend_confidence(self_reported, linguistic):
         return self_reported
     avg = (CONF_TO_NUM[self_reported] + CONF_TO_NUM[linguistic]) / 2
     return NUM_TO_CONF[round(avg)]
+
+
 
 
 
