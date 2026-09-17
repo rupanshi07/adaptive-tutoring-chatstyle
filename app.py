@@ -9,19 +9,20 @@ import time
 import csv
 import os
 
-from modules.bayesian_network import build_bayesian_network, estimate_probability_correct
+from modules.bayesian_network import build_bayesian_network, estimate_probability_correct, estimate_preliminary_probability_correct
 from modules.hmm_calibration import build_hmm, encode_observation, infer_calibration_state
 from modules.rl_agent import TutorRLAgent, bucket_probability, compute_reward
-from modules.tutor import generate_question, grade_answer, generate_feedback
+from modules.tutor import generate_question, grade_answer, generate_feedback, analyze_justification_confidence, blend_confidence
+from concurrent.futures import ThreadPoolExecutor
 
-TIME_THRESHOLDS = {"MCQ": 10, "Descriptive": 25, "Coding": 45}
+TIME_THRESHOLDS = {"MCQ": 45, "Descriptive": 150, "Coding": 210}
 
 LOG_PATH = "data/interaction_log.csv"
 LOG_FIELDS = [
     "timestamp", "subject", "topic", "question_type", "difficulty",
     "confidence", "response_time", "elapsed_seconds", "correct",
     "calibration_state", "p_correct", "action", "base_reward",
-    "satisfaction", "combined_reward", "previous_accuracy", "hint_used",
+    "satisfaction", "combined_reward", "previous_accuracy", "hint_used", "justification_text", "linguistic_confidence",
 ]
 
 
@@ -94,15 +95,25 @@ def start_new_question():
     st.session_state.hint_text = None
     st.session_state.stage = "quiz_answer"
 
+    bn_model, _, _ = load_models()
+    prelim_p = estimate_preliminary_probability_correct(bn_model, q["difficulty"], st.session_state.previous_accuracy)
+
     if q["question_type"] == "MCQ":
         options_text = "\n".join(f"**{k}.** {v}" for k, v in q["options"].items())
-        add_message("assistant", f"**Round {st.session_state.round_num} ({q['difficulty']})**\n\n{q['question']}\n\n{options_text}")
+        add_message("assistant", f"**Round {st.session_state.round_num} ({q['difficulty']})**\n\n{q['question']}\n\n{options_text}\n\n*Preliminary estimate (before you answer, based only on difficulty and your history): {prelim_p:.0%} likely correct*")
     else:
-        add_message("assistant", f"**Round {st.session_state.round_num} ({q['difficulty']})**\n\n{q['question']}")
+        add_message("assistant", f"**Round {st.session_state.round_num} ({q['difficulty']})**\n\n{q['question']}\n\n*Preliminary estimate (before you answer, based only on difficulty and your history): {prelim_p:.0%} likely correct*")
 
 
-def process_answer(bn_model, hmm_model, agent, student_answer, confidence_level):
+def process_answer(bn_model, hmm_model, agent, student_answer, confidence_level, justification=""):
     q = st.session_state.current_question
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        justification_future = executor.submit(analyze_justification_confidence, q, justification)
+        grading_future = executor.submit(grade_answer, q, student_answer)
+        linguistic_confidence = justification_future.result()
+        is_correct = grading_future.result()
+    effective_confidence = blend_confidence(confidence_level, linguistic_confidence)
 
     elapsed = time.time() - st.session_state.question_start_time
     threshold = TIME_THRESHOLDS.get(q["question_type"], 15)
@@ -112,14 +123,11 @@ def process_answer(bn_model, hmm_model, agent, student_answer, confidence_level)
     # Bayesian Network predicts BEFORE grading -- genuine prediction,
     # not a redundant re-derivation of an already-known outcome.
     p_correct = estimate_probability_correct(
-        bn_model, confidence=confidence_level, difficulty=q["difficulty"],
+        bn_model, confidence=effective_confidence, difficulty=q["difficulty"],
         time_=time_taken, hints=hints_flag, previous_accuracy=st.session_state.previous_accuracy,
     )
 
-    with st.spinner("Grading..."):
-        is_correct = grade_answer(q, student_answer)
-
-    observation = encode_observation(confidence_level, is_correct)
+    observation = encode_observation(effective_confidence, is_correct)
     updated_history = st.session_state.history + [observation]
     if len(updated_history) > 20:
         updated_history = updated_history[-20:]
@@ -162,6 +170,8 @@ def process_answer(bn_model, hmm_model, agent, student_answer, confidence_level)
         "response_time": time_taken,
         "elapsed_seconds": round(elapsed, 1),
         "hint_used": hints_flag,
+        "justification_text": justification,
+        "linguistic_confidence": linguistic_confidence,
     }
 
 
@@ -192,6 +202,8 @@ def finalize_with_satisfaction(agent, satisfied):
         "combined_reward": combined_reward,
         "previous_accuracy": st.session_state.previous_accuracy,
         "hint_used": pu["hint_used"],
+        "justification_text": pu.get("justification_text", ""),
+        "linguistic_confidence": pu.get("linguistic_confidence", ""),
     })
 
     if st.session_state.retry_same_question:
@@ -271,6 +283,13 @@ def main():
                 st.rerun()
         return
 
+    pending_justification = ""
+    if st.session_state.stage == "quiz_answer" and st.session_state.current_question and st.session_state.pending_update is None:
+        pending_justification = st.text_area(
+            "Optional: briefly explain your reasoning (not required)",
+            key=f"justification_{st.session_state.round_num}",
+        )
+
     user_input = st.chat_input("Type your response...")
 
     if user_input:
@@ -298,7 +317,7 @@ def main():
             start_new_question()
 
         elif st.session_state.stage == "quiz_answer":
-            process_answer(bn_model, hmm_model, agent, user_input, confidence_level)
+            process_answer(bn_model, hmm_model, agent, user_input, confidence_level, justification=pending_justification)
             st.session_state.round_num += 1
 
         elif st.session_state.stage == "await_next":
@@ -312,6 +331,22 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
