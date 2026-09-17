@@ -22,7 +22,7 @@ LOG_FIELDS = [
     "timestamp", "subject", "topic", "question_type", "difficulty",
     "confidence", "response_time", "elapsed_seconds", "correct",
     "calibration_state", "p_correct", "action", "base_reward",
-    "satisfaction", "combined_reward", "previous_accuracy", "hint_used", "justification_text", "linguistic_confidence",
+    "satisfaction", "combined_reward", "previous_accuracy", "hint_used", "justification_text", "linguistic_confidence", "effective_confidence",
 ]
 
 
@@ -171,6 +171,7 @@ def process_answer(bn_model, hmm_model, agent, student_answer, confidence_level,
         "p_correct": p_correct,
         "is_correct": is_correct,
         "confidence": confidence_level,
+        "effective_confidence": effective_confidence,
         "response_time": time_taken,
         "elapsed_seconds": round(elapsed, 1),
         "hint_used": hints_flag,
@@ -195,6 +196,7 @@ def finalize_with_satisfaction(agent, satisfied):
         "question_type": st.session_state.question_type,
         "difficulty": st.session_state.current_question["difficulty"],
         "confidence": pu["confidence"],
+        "effective_confidence": pu["effective_confidence"],
         "response_time": pu["response_time"],
         "elapsed_seconds": pu["elapsed_seconds"],
         "correct": pu["is_correct"],
@@ -335,6 +337,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
 
 
 
