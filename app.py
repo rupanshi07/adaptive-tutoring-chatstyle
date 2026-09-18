@@ -76,13 +76,18 @@ def render_chat_log():
             st.markdown(msg["content"])
 
 
+DIFFICULTY_BY_ACCURACY = {"Low": "Easy", "Medium": "Medium", "High": "Hard"}
+
+
 def start_new_question():
+    next_difficulty = DIFFICULTY_BY_ACCURACY.get(st.session_state.previous_accuracy, "Medium")
     with st.spinner("Generating your question..."):
         try:
             q = generate_question(
                 st.session_state.subject,
                 st.session_state.topic,
                 st.session_state.question_type,
+                difficulty=next_difficulty,
             )
         except Exception:
             add_message("assistant", "Sorry, the question generator is temporarily unavailable. Please type 'next' to try again in a moment.")
@@ -337,6 +342,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
