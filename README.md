@@ -1,4 +1,4 @@
-﻿# Adaptive Tutoring System - Chat-Style Interface
+# Adaptive Tutoring System - Chat-Style Interface
 
 A conversational adaptive tutoring system that dynamically generates questions based on Subject, Topic, and Question Type, then personalizes feedback using Bayesian Networks, Hidden Markov Models, and learner-feedback-driven Reinforcement Learning.
 
@@ -206,3 +206,4 @@ For a Medium-confidence, Medium-difficulty, Fast, no-hint, High-previous-accurac
 - Learned from 26 real observations: P(Correct) = 0.996
 
 This is a genuine, measured divergence between expert intuition and real behavior -- not an error to explain away, but the exact justification for why data-driven relearning matters. For combinations with little or no real support in the log, the learned model correctly falls back toward an uninformative estimate near 0.5, rather than expressing false confidence -- demonstrating that Bayesian parameter estimation behaves correctly under both sufficient and insufficient evidence.
+
