@@ -175,35 +175,3 @@ Check Bayesian Network calibration on real logged data:
 
 python evaluate_calibration.py
 
-## Dataset Citation
-
-Cortez, P. (2008). Student Performance [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C5TG7T
-
-## Tech Stack
-
-- pgmpy -- Bayesian Network construction, exact inference (Variable Elimination), and parameter learning
-- hmmlearn -- Hidden Markov Model, Viterbi decoding, (gated) Baum-Welch learning
-- Google Gemini API (google-genai) and Groq API (groq) -- dynamic question generation, grading, feedback, with automatic fallback
-- ucimlrepo -- fetching the sourced UCI dataset
-- Streamlit -- conversational chat-style web UI
-
-## Known Limitations
-
-- The live Bayesian Network Correct-node CPD is still expert-specified, not learned from real data; a script to relearn it from interaction_log.csv (analogous to learn_hmm_from_log.py) does not exist yet.
-- The HMM matrices remain hand-specified; real learning is implemented but correctly gated behind a data-sufficiency check that is not yet met.
-- Only a small number of real interactions have been logged so far -- the Brier score/calibration curve and any future data-driven learning are not yet based on a meaningful sample size.
-- train.py simulated learner behavior uses an arbitrary difficulty-success heuristic, not grounded in the real UCI dataset actual pass-rate patterns.
-- The RL agent shows a clear advantage over random behavior but not a statistically convincing advantage over a simple fixed always-Hint baseline, based on rigorous 10-trial testing.
-- The dataset-driven Bayesian Network (UCI-based) has not itself been evaluated for calibration, and the source dataset class imbalance (about 85 percent Pass, 15 percent Fail) was not addressed.
-
-## A Real Result: Learned vs. Hand-Specified Probabilities
-
-Once enough real, varied interaction data accumulated (75 real logged interactions), learn_live_bn_from_log.py successfully learned real CPD parameters for the live Bayesian Network -- the first time this project moved from "the infrastructure exists" to "this actually happened with real data."
-
-For a Medium-confidence, Medium-difficulty, Fast, no-hint, High-previous-accuracy student (a combination observed 26 times in real logged data):
-
-- Hand-specified formula (expert judgment): P(Correct) = 0.700
-- Learned from 26 real observations: P(Correct) = 0.996
-
-This is a genuine, measured divergence between expert intuition and real behavior -- not an error to explain away, but the exact justification for why data-driven relearning matters. For combinations with little or no real support in the log, the learned model correctly falls back toward an uninformative estimate near 0.5, rather than expressing false confidence -- demonstrating that Bayesian parameter estimation behaves correctly under both sufficient and insufficient evidence.
-
